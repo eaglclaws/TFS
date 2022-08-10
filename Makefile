@@ -1,10 +1,9 @@
 CC = gcc
 
-INCLUDE = -Iinclude
-LIB = -L/usr/local/lib
-LINK = -lcrypto
+INCLUDE = -Iinclude -I/home/eaglclaws/src/fuse-3.11.0/include
+LIB = -L/usr/local/lib -L/home/eaglclaws/src/fuse-3.11.0/lib
+LINK = -lcrypto -lfuse3 -lpthread
 FLAGS = -Wall
-FUSE = `pkg-config fuse3 --cflags --libs`
 
 all: main.o sha256.o
 	$(CC) $(FLAGS) $(FUSE) $(LIB) $(LINK) main.o sha256.o
