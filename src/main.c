@@ -31,6 +31,7 @@
 #include "sha256.h"
 
 struct tfs_state {
+	FILE *logfile;
 	char *rootdir;
 };
 
@@ -51,6 +52,7 @@ tfs_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
 	cfg->entry_timeout = 0;
 	cfg->attr_timeout = 0;
 	cfg->negative_timeout = 0;
+	fprintf(TFS_USER_DATA->logfile, "init\n");
 	return TFS_USER_DATA;
 }
 
@@ -63,6 +65,7 @@ tfs_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi)
 	tfs_fullpath(fpath, path);
 	res = lstat(fpath, stbuf);
 	if (res == -1) return -errno;
+	fprintf(TFS_USER_DATA->logfile, "getattr\n");
 	return 0;
 }
 
@@ -74,6 +77,7 @@ tfs_access(const char *path, int mask)
 	tfs_fullpath(fpath, path);
 	res = access(fpath, mask);
 	if (res == -1) return -errno;
+	fprintf(TFS_USER_DATA->logfile, "access\n");
 	return 0;
 }
 
@@ -88,6 +92,7 @@ tfs_readlink(const char *path, char *buf, size_t size)
 		return -errno;
 
 	buf[res] = '\0';
+	fprintf(TFS_USER_DATA->logfile, "readlink\n");
 	return 0;
 }
 
@@ -119,15 +124,17 @@ tfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset,
 	}
 
 	closedir(dp);
+	fprintf(TFS_USER_DATA->logfile, "readdir\n");
 	return 0;
 }
 
-//TODO: REPLACE BELLOW
 static int
 tfs_mknod(const char *path, mode_t mode, dev_t rdev)
 {
 	int res;
 	char fpath[PATH_MAX];
+	char rpath[PATH_MAX];
+	char sha[65];
 	tfs_fullpath(fpath, path);
 	int dirfd = AT_FDCWD;
 	if (S_ISREG(mode)) {
@@ -141,9 +148,12 @@ tfs_mknod(const char *path, mode_t mode, dev_t rdev)
 	} else {
 		res = mknodat(dirfd, fpath, mode, rdev);
 	}
+	sha256_file(fpath, sha);
+	tfs_fullpath(rpath, sha);
+	fprintf(TFS_USER_DATA->logfile, "mknod file %s with hash %s\n", path, sha);
 	if (res == -1)
 		return -errno;
-
+	fprintf(TFS_USER_DATA->logfile, "mknod\n");
 	return 0;
 }
 
@@ -158,6 +168,7 @@ tfs_mkdir(const char *path, mode_t mode)
 	if (res == -1)
 		return -errno;
 
+	fprintf(TFS_USER_DATA->logfile, "mkdir\n");
 	return 0;
 }
 
@@ -172,6 +183,7 @@ tfs_unlink(const char *path)
 	if (res == -1)
 		return -errno;
 
+	fprintf(TFS_USER_DATA->logfile, "unlink\n");
 	return 0;
 }
 
@@ -186,6 +198,7 @@ tfs_rmdir(const char *path)
 	if (res == -1)
 		return -errno;
 
+	fprintf(TFS_USER_DATA->logfile, "rmdir\n");
 	return 0;
 }
 
@@ -193,11 +206,15 @@ static int
 tfs_symlink(const char *from, const char *to)
 {
 	int res;
-
-	res = symlink(from, to);
+	char ffrom[PATH_MAX];
+	tfs_fullpath(ffrom, from);
+	char fto[PATH_MAX];
+	tfs_fullpath(fto, to);
+	res = symlink(ffrom, fto);
 	if (res == -1)
 		return -errno;
 
+	fprintf(TFS_USER_DATA->logfile, "symlink\n");
 	return 0;
 }
 
@@ -205,14 +222,18 @@ static int
 tfs_rename(const char *from, const char *to, unsigned int flags)
 {
 	int res;
-
+	char ffrom[PATH_MAX];
+	tfs_fullpath(ffrom, from);
+	char fto[PATH_MAX];
+	tfs_fullpath(fto, to);
+	
 	if (flags)
 		return -EINVAL;
 
-	res = rename(from, to);
+	res = rename(ffrom, fto);
 	if (res == -1)
 		return -errno;
-
+	fprintf(TFS_USER_DATA->logfile, "rename %s to %s\n", from, to);
 	return 0;
 }
 
@@ -220,11 +241,16 @@ static int
 tfs_link(const char *from, const char *to)
 {
 	int res;
+	char ffrom[PATH_MAX];
+	tfs_fullpath(ffrom, from);
+	char fto[PATH_MAX];
+	tfs_fullpath(fto, to);
 
-	res = link(from, to);
+	res = link(ffrom, fto);
 	if (res == -1)
 		return -errno;
 
+	fprintf(TFS_USER_DATA->logfile, "link\n");
 	return 0;
 }
 
@@ -241,6 +267,7 @@ tfs_chmod(const char *path, mode_t mode,
 	if (res == -1)
 		return -errno;
 
+	fprintf(TFS_USER_DATA->logfile, "chmod\n");
 	return 0;
 }
 
@@ -257,6 +284,7 @@ tfs_chown(const char *path, uid_t uid, gid_t gid,
 	if (res == -1)
 		return -errno;
 
+	fprintf(TFS_USER_DATA->logfile, "chown\n");
 	return 0;
 }
 
@@ -275,6 +303,7 @@ tfs_truncate(const char *path, off_t size,
 	if (res == -1)
 		return -errno;
 
+	fprintf(TFS_USER_DATA->logfile, "truncate\n");
 	return 0;
 }
 
@@ -292,6 +321,7 @@ tfs_utimens(const char *path, const struct timespec ts[2],
 	if (res == -1)
 		return -errno;
 
+	fprintf(TFS_USER_DATA->logfile, "utimens\n");
 	return 0;
 }
 
@@ -301,9 +331,19 @@ tfs_create(const char *path, mode_t mode,
 {
 	int res;
 	char fpath[PATH_MAX];
+	char rpath[PATH_MAX];
+	char sha[65];
+	char shapath[66];
+	shapath[0] = '/';
+	shapath[1] = 0;
 	tfs_fullpath(fpath, path);
 
 	res = open(fpath, fi->flags, mode);
+	sha256_file(fpath, sha);
+	strcat(shapath, sha);
+	tfs_fullpath(rpath, shapath);
+	fprintf(TFS_USER_DATA->logfile, "create file %s with hash %s\n",
+			fpath, rpath);
 	if (res == -1)
 		return -errno;
 
@@ -316,9 +356,14 @@ tfs_open(const char *path, struct fuse_file_info *fi)
 {
 	int res;
 	char fpath[PATH_MAX];
+	char rpath[PATH_MAX];
+	char sha[65];
 	tfs_fullpath(fpath, path);
 
 	res = open(fpath, fi->flags);
+	sha256_file(fpath, sha);
+	tfs_fullpath(rpath, sha);
+	fprintf(TFS_USER_DATA->logfile, "open file %s with hash %s\n", path, sha);
 	if (res == -1)
 		return -errno;
 
@@ -333,6 +378,8 @@ tfs_read(const char *path, char *buf, size_t size, off_t offset,
 	int fd;
 	int res;
 	char fpath[PATH_MAX];
+	char rpath[PATH_MAX];
+	char sha[65];
 	tfs_fullpath(fpath, path);
 
 	if(fi == NULL)
@@ -349,6 +396,9 @@ tfs_read(const char *path, char *buf, size_t size, off_t offset,
 
 	if(fi == NULL)
 		close(fd);
+	sha256_file(fpath, sha);
+	tfs_fullpath(rpath, sha);
+	fprintf(TFS_USER_DATA->logfile, "read file %s with hash %s\n", path, sha);
 	return res;
 }
 
@@ -359,6 +409,8 @@ tfs_write(const char *path, const char *buf, size_t size,
 	int fd;
 	int res;
 	char fpath[PATH_MAX];
+	char rpath[PATH_MAX];
+	char sha[65];
 	tfs_fullpath(fpath, path);
 
 	(void) fi;
@@ -376,6 +428,9 @@ tfs_write(const char *path, const char *buf, size_t size,
 
 	if(fi == NULL)
 		close(fd);
+	sha256_file(fpath, sha);
+	tfs_fullpath(rpath, sha);
+	fprintf(TFS_USER_DATA->logfile, "write file %s with hash %s\n", path, sha);
 	return res;
 }
 
@@ -390,13 +445,27 @@ tfs_statfs(const char *path, struct statvfs *stbuf)
 	if (res == -1)
 		return -errno;
 
+	fprintf(TFS_USER_DATA->logfile, "statfs\n");
 	return 0;
 }
 
 static int
 tfs_release(const char *path, struct fuse_file_info *fi)
 {
-	(void) path;
+	char fpath[PATH_MAX];
+	char rpath[PATH_MAX];
+	char sha[65];
+	char shapath[66];
+	shapath[0] = '/';
+	shapath[1] = 0;
+	tfs_fullpath(fpath, path);
+	sha256_file(fpath, sha);
+	strcat(shapath, sha);
+	tfs_fullpath(rpath, shapath);
+	fprintf(TFS_USER_DATA->logfile, "release file %s with hash %s\n", path, sha);
+	if (strcmp(fpath, rpath) != 0) {
+		rename(fpath, rpath);
+	} 
 	close(fi->fh);
 	return 0;
 }
@@ -618,6 +687,13 @@ main(int argc, char *argv[])
 	//sha256_file(argv[1], test);
 	//printf("%s\n", test);
 	struct tfs_state *tfs_data;
+	FILE *log;
+	log = fopen("tfs.log", "w");
+	if (log == NULL) {
+		perror("logfile");
+		exit(EXIT_FAILURE);
+	}
+	setvbuf(log, NULL, _IOLBF, 0);
 	if ((argc < 3) || (argv[argc - 2][0] == '-') || (argv[argc - 1][0] == '-'))
 		tfs_usage(argv[0]);
 	tfs_data = malloc(sizeof(struct tfs_state));
@@ -629,5 +705,6 @@ main(int argc, char *argv[])
 	argv[argc - 2] = argv[argc - 1];
 	argv[argc - 1] = NULL;
 	argc--;
+	tfs_data->logfile = log;
 	return fuse_main(argc, argv, &tfs_ops, tfs_data);
 }
