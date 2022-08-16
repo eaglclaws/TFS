@@ -32,6 +32,8 @@
 
 struct tfs_state {
 	FILE *logfile;
+	FILE *tagfile;
+	FILE *taglist;
 	char *rootdir;
 };
 
@@ -688,7 +690,11 @@ main(int argc, char *argv[])
 	//printf("%s\n", test);
 	struct tfs_state *tfs_data;
 	FILE *log;
+	FILE *tagmap;
+	FILE *taglist;
 	log = fopen("tfs.log", "w");
+	tagmap = fopen("tagmap.dat", "a+");
+	taglist = fopen("tags.dat", "a+");
 	if (log == NULL) {
 		perror("logfile");
 		exit(EXIT_FAILURE);
@@ -706,5 +712,7 @@ main(int argc, char *argv[])
 	argv[argc - 1] = NULL;
 	argc--;
 	tfs_data->logfile = log;
+	tfs_data->tagfile = tagmap;
+	tfs_data->taglist = taglist;
 	return fuse_main(argc, argv, &tfs_ops, tfs_data);
 }

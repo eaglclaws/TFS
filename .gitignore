@@ -1,5 +1,8 @@
 *.o
+*.dat
 *.out
 *.log
+tagmap
+tags/
 test/
 mnt/
