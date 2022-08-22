@@ -2,7 +2,8 @@
 *.dat
 *.out
 *.log
-tagmap
+*.db
+tagmap/
 tags/
 test/
 mnt/

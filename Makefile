@@ -2,7 +2,7 @@ CC = gcc
 
 INCLUDE = -Iinclude -I/home/eaglclaws/src/fuse-3.11.0/include
 LIB = -L/usr/local/lib -L/home/eaglclaws/src/fuse-3.11.0/lib
-LINK = -lcrypto -lfuse3 -lpthread
+LINK = -lcrypto -lfuse3 -lpthread -lsqlite3
 FLAGS = -Wall -g
 
 all: main.o sha256.o

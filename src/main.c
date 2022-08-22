@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <sys/time.h>
 #include <limits.h>
+#include <sqlite3.h>
 
 #ifdef HAVE_SETXATTR
 #include <sys/xattr.h>
@@ -32,9 +33,10 @@
 
 struct tfs_state {
 	FILE *logfile;
-	FILE *tagfile;
-	FILE *taglist;
+	sqlite3 *dbfile;
 	char *rootdir;
+
+	char *curfile;
 };
 
 static int fill_dir_plus = 0;
@@ -339,7 +341,9 @@ tfs_create(const char *path, mode_t mode,
 	shapath[0] = '/';
 	shapath[1] = 0;
 	tfs_fullpath(fpath, path);
-
+	TFS_USER_DATA->curfile = malloc(PATH_MAX * sizeof(char));
+	strcpy(TFS_USER_DATA->curfile, path);
+	fprintf(TFS_USER_DATA->logfile, "%s in state\n", TFS_USER_DATA->curfile);
 	res = open(fpath, fi->flags, mode);
 	sha256_file(fpath, sha);
 	strcat(shapath, sha);
@@ -456,6 +460,9 @@ tfs_release(const char *path, struct fuse_file_info *fi)
 {
 	char fpath[PATH_MAX];
 	char rpath[PATH_MAX];
+	char *filename;
+	char *token;
+	const char *delimit = ".";
 	char sha[65];
 	char shapath[66];
 	shapath[0] = '/';
@@ -464,10 +471,18 @@ tfs_release(const char *path, struct fuse_file_info *fi)
 	sha256_file(fpath, sha);
 	strcat(shapath, sha);
 	tfs_fullpath(rpath, shapath);
+	if (TFS_USER_DATA->curfile != NULL) {
+		filename = TFS_USER_DATA->curfile + 1;
+		token = strtok(filename, delimit);
+		token = strtok(NULL, delimit);
+	}
 	fprintf(TFS_USER_DATA->logfile, "release file %s with hash %s\n", path, sha);
-	if (strcmp(fpath, rpath) != 0) {
-		rename(fpath, rpath);
-	} 
+	if (TFS_USER_DATA->curfile != NULL) {
+		filename = NULL;
+		token = NULL;
+		TFS_USER_DATA->curfile = NULL;
+		free(TFS_USER_DATA->curfile);
+	}
 	close(fi->fh);
 	return 0;
 }
@@ -690,11 +705,35 @@ main(int argc, char *argv[])
 	//printf("%s\n", test);
 	struct tfs_state *tfs_data;
 	FILE *log;
-	FILE *tagmap;
-	FILE *taglist;
+	FILE *tmp;
+	char *zErrMsg;
+	sqlite3 *db;
+	int rc;
 	log = fopen("tfs.log", "w");
-	tagmap = fopen("tagmap.dat", "a+");
-	taglist = fopen("tags.dat", "a+");
+	tmp = fopen("tfs.db", "r");
+	if (tmp) {
+		sqlite3_open("tfs.db", &db);
+	} else {
+		sqlite3_open("tfs.db", &db);
+		char *sql =
+			"CREATE TABLE files(" \
+			"NAME VARCHAR PRIMARY KEY NOT NULL); " \
+			"CREATE TABLE tags(" \
+			"NAME VARCHAR PRIMARY KEY NOT NULL); " \
+			"CREATE TABLE tagmap(" \
+			"FILE VARCHAR NOT NULL," \
+			"TAG VARCHAR NOT NULL," \
+			"FOREIGN KEY (FILE) REFERENCES files (NAME),"\
+			"FOREIGN KEY (TAG) REFERENCES tags (NAME)," \
+			"PRIMARY KEY (FILE, TAG));";
+		rc = sqlite3_exec(db, sql, NULL, 0, &zErrMsg);
+		if( rc != SQLITE_OK ){
+      		fprintf(stderr, "SQL error: %s\n", zErrMsg);
+      		sqlite3_free(zErrMsg);
+   		} else {
+      		fprintf(stdout, "Tables created successfully\n");
+   		}
+	}
 	if (log == NULL) {
 		perror("logfile");
 		exit(EXIT_FAILURE);
@@ -712,7 +751,5 @@ main(int argc, char *argv[])
 	argv[argc - 1] = NULL;
 	argc--;
 	tfs_data->logfile = log;
-	tfs_data->tagfile = tagmap;
-	tfs_data->taglist = taglist;
 	return fuse_main(argc, argv, &tfs_ops, tfs_data);
 }
