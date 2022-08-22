@@ -462,6 +462,9 @@ tfs_release(const char *path, struct fuse_file_info *fi)
 	char rpath[PATH_MAX];
 	char *filename;
 	char *token;
+	char sql[1000];
+	char *zErrMsg = 0;
+	int rc;
 	const char *delimit = ".";
 	char sha[65];
 	char shapath[66];
@@ -477,6 +480,18 @@ tfs_release(const char *path, struct fuse_file_info *fi)
 		token = strtok(NULL, delimit);
 	}
 	fprintf(TFS_USER_DATA->logfile, "release file %s with hash %s\n", path, sha);
+	if (strcmp(fpath, rpath) != 0) {
+		rename(fpath, rpath);
+		sprintf(sql,
+			"DELETE FROM files WHERE name=\'%s\'; " \
+			"INSERT INTO files VALUES(\'%s\');",
+			path[0] == '/' ? path + 1 : path, sha
+		);
+		fprintf(TFS_USER_DATA->logfile, "%s\n", sql);
+		rc = sqlite3_exec(TFS_USER_DATA->dbfile, sql, NULL, 0, &zErrMsg);
+		fprintf(TFS_USER_DATA->logfile, "%p %d %d %s\n", TFS_USER_DATA->dbfile, SQLITE_OK, rc, zErrMsg);
+		sqlite3_free(zErrMsg);
+	}
 	if (TFS_USER_DATA->curfile != NULL) {
 		filename = NULL;
 		token = NULL;
@@ -712,20 +727,21 @@ main(int argc, char *argv[])
 	log = fopen("tfs.log", "w");
 	tmp = fopen("tfs.db", "r");
 	if (tmp) {
+		fclose(tmp);
 		sqlite3_open("tfs.db", &db);
 	} else {
 		sqlite3_open("tfs.db", &db);
 		char *sql =
 			"CREATE TABLE files(" \
-			"NAME VARCHAR PRIMARY KEY NOT NULL); " \
+			"name VARCHAR PRIMARY KEY NOT NULL); " \
 			"CREATE TABLE tags(" \
-			"NAME VARCHAR PRIMARY KEY NOT NULL); " \
+			"name VARCHAR PRIMARY KEY NOT NULL); " \
 			"CREATE TABLE tagmap(" \
-			"FILE VARCHAR NOT NULL," \
-			"TAG VARCHAR NOT NULL," \
-			"FOREIGN KEY (FILE) REFERENCES files (NAME),"\
-			"FOREIGN KEY (TAG) REFERENCES tags (NAME)," \
-			"PRIMARY KEY (FILE, TAG));";
+			"file VARCHAR NOT NULL," \
+			"tag VARCHAR NOT NULL," \
+			"FOREIGN KEY (file) REFERENCES files (name),"\
+			"FOREIGN KEY (tag) REFERENCES tags (name)," \
+			"PRIMARY KEY (file, tag));";
 		rc = sqlite3_exec(db, sql, NULL, 0, &zErrMsg);
 		if( rc != SQLITE_OK ){
       		fprintf(stderr, "SQL error: %s\n", zErrMsg);
@@ -751,5 +767,6 @@ main(int argc, char *argv[])
 	argv[argc - 1] = NULL;
 	argc--;
 	tfs_data->logfile = log;
+	tfs_data->dbfile = db;
 	return fuse_main(argc, argv, &tfs_ops, tfs_data);
 }
