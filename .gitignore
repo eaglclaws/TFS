@@ -7,3 +7,6 @@ tagmap/
 tags/
 test/
 mnt/
+example/
+bin/
+obj/

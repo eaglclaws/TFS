@@ -181,12 +181,20 @@ tfs_unlink(const char *path)
 {
 	int res;
 	char fpath[PATH_MAX];
+	char sql[1000];
+	char *zErrMsg = 0;
 	tfs_fullpath(fpath, path);
 
 	res = unlink(fpath);
 	if (res == -1)
 		return -errno;
-
+	sprintf(sql, 
+		"DELETE FROM files where name=\'%s\'",
+		path[0] == '/' ? path + 1 : path
+	);
+	int rc = sqlite3_exec(TFS_USER_DATA->dbfile, sql, NULL, 0, &zErrMsg);
+	fprintf(TFS_USER_DATA->logfile, "%s\n", zErrMsg);
+	sqlite3_free(zErrMsg);
 	fprintf(TFS_USER_DATA->logfile, "unlink\n");
 	return 0;
 }
@@ -436,6 +444,9 @@ tfs_write(const char *path, const char *buf, size_t size,
 		close(fd);
 	sha256_file(fpath, sha);
 	tfs_fullpath(rpath, sha);
+	TFS_USER_DATA->curfile = malloc(PATH_MAX * sizeof(char));
+	strcpy(TFS_USER_DATA->curfile, path);
+	fprintf(TFS_USER_DATA->logfile, "%s in state\n", TFS_USER_DATA->curfile);
 	fprintf(TFS_USER_DATA->logfile, "write file %s with hash %s\n", path, sha);
 	return res;
 }
