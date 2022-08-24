@@ -192,7 +192,7 @@ tfs_unlink(const char *path)
 		"DELETE FROM files where name=\'%s\'",
 		path[0] == '/' ? path + 1 : path
 	);
-	int rc = sqlite3_exec(TFS_USER_DATA->dbfile, sql, NULL, 0, &zErrMsg);
+	sqlite3_exec(TFS_USER_DATA->dbfile, sql, NULL, 0, &zErrMsg);
 	fprintf(TFS_USER_DATA->logfile, "%s\n", zErrMsg);
 	sqlite3_free(zErrMsg);
 	fprintf(TFS_USER_DATA->logfile, "unlink\n");
@@ -489,6 +489,7 @@ tfs_release(const char *path, struct fuse_file_info *fi)
 		filename = TFS_USER_DATA->curfile + 1;
 		token = strtok(filename, delimit);
 		token = strtok(NULL, delimit);
+		fprintf(stderr, "TODO: FILE EXTENSION IS %s, WHAT TO DO ABOUT IT?\n", token);
 	}
 	fprintf(TFS_USER_DATA->logfile, "release file %s with hash %s\n", path, sha);
 	if (strcmp(fpath, rpath) != 0) {
