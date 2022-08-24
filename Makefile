@@ -6,7 +6,7 @@ MAIN_L = -lcrypto -lfuse3 -lpthread -lsqlite3
 TOOL_L = -lsqlite3
 FLAGS = -Wall -g -O2
 
-all: tfs dbtool mktag rmtag
+all: tfs dbtool mktag rmtag tag
 	cp bin/* example
 
 tfs: obj/main.o obj/sha256.o
@@ -20,6 +20,9 @@ rmtag: obj/rmtag.o
 
 mktag: obj/mktag.o
 	$(CC) $(FLAGS) $(LIB) $(TOOL_L) obj/mktag.o -o bin/mktag
+
+tag: obj/tag.o
+	$(CC) $(FLAGS) $(LIB) $(TOOL_L) obj/tag.o -o bin/tag
 
 obj/main.o: src/main.c include/sha256.h
 	$(CC) $(FLAGS) $(INCLUDE) $(FUSE) -c src/main.c -o obj/main.o
@@ -35,6 +38,9 @@ obj/rmtag.o: src/rmtag.c
 
 obj/mktag.o: src/mktag.c
 	$(CC) $(FLAGS) $(INCLUDE) -c src/mktag.c -o obj/mktag.o
+
+obj/tag.o: src/tag.c
+	$(CC) $(FLAGS) $(INCLUDE) -c src/tag.c -o obj/tag.o
 
 clean:
 	rm obj/*.o
