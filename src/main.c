@@ -492,12 +492,21 @@ tfs_release(const char *path, struct fuse_file_info *fi)
 	}
 	fprintf(TFS_USER_DATA->logfile, "release file %s with hash %s\n", path, sha);
 	if (strcmp(fpath, rpath) != 0) {
+		sqlite3_stmt *stmt;
 		rename(fpath, rpath);
-		sprintf(sql,
-			"DELETE FROM files WHERE name=\'%s\'; " \
-			"INSERT INTO files VALUES(\'%s\');",
-			path[0] == '/' ? path + 1 : path, sha
-		);
+		char temp[1000];
+		sprintf(temp, "SELECT name FROM files WHERE name=\'%s\';", path[0] == '/' ? path + 1 : path);
+		sqlite3_prepare_v2(TFS_USER_DATA->dbfile, temp, -1, &stmt, NULL);
+		rc = sqlite3_step(stmt);
+		if (rc != SQLITE_ROW) {
+			sqlite3_finalize(stmt);
+			sprintf(sql, "INSERT INTO files VALUES(\'%s\');", sha);
+		} else {
+			sqlite3_finalize(stmt);
+			sprintf(sql,
+				"UPDATE files SET name=\'%s\' WHERE name=\'%s\';",
+				sha, path[0] == '/' ? path + 1 : path);
+		}
 		fprintf(TFS_USER_DATA->logfile, "%s\n", sql);
 		rc = sqlite3_exec(TFS_USER_DATA->dbfile, sql, NULL, 0, &zErrMsg);
 		fprintf(TFS_USER_DATA->logfile, "%p %d %d %s\n", TFS_USER_DATA->dbfile, SQLITE_OK, rc, zErrMsg);
@@ -750,8 +759,10 @@ main(int argc, char *argv[])
 			"CREATE TABLE tagmap(" \
 			"file VARCHAR NOT NULL," \
 			"tag VARCHAR NOT NULL," \
-			"FOREIGN KEY (file) REFERENCES files (name),"\
-			"FOREIGN KEY (tag) REFERENCES tags (name)," \
+			"FOREIGN KEY (file) REFERENCES files (name) \
+			ON DELETE CASCADE ON UPDATE CASCADE,"\
+			"FOREIGN KEY (tag) REFERENCES tags (name) \
+			ON DELETE CASCADE ON UPDATE CASCADE," \
 			"PRIMARY KEY (file, tag));";
 		rc = sqlite3_exec(db, sql, NULL, 0, &zErrMsg);
 		if( rc != SQLITE_OK ){
@@ -761,6 +772,7 @@ main(int argc, char *argv[])
       		fprintf(stdout, "Tables created successfully\n");
    		}
 	}
+	sqlite3_exec(db, "PRAGMA foreign_keys = ON", NULL, NULL, NULL);
 	if (log == NULL) {
 		perror("logfile");
 		exit(EXIT_FAILURE);
