@@ -40,7 +40,7 @@ main(int argc, char *argv[])
 	}
 
 	for (int i = 1; i < argc; i++) {
-		sprintf(sql, "DELETE FROM tags WHERE name=\'%s\';", argv[i]);
+		sprintf(sql, "PRAGMA foreign_keys = ON; DELETE FROM tags WHERE name=\'%s\';", argv[i]);
 		rc = sqlite3_exec(db, sql, NULL, NULL, &zErrMsg);
 		if (rc) {
 			fprintf(stderr, "%s\n", zErrMsg);
