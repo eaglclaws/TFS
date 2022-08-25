@@ -90,11 +90,18 @@ main(int argc, char *argv[])
 		fprintf(stderr, "Error: %s\n", sqlite3_errmsg(db));
 	}
 	rc = sqlite3_step(stmt);
+	char current[64];
 	const unsigned char *file = sqlite3_column_text(stmt, 0);
 	const unsigned char *tag = sqlite3_column_text(stmt, 1);
 	printf("file: %s\n", file);
 	printf("\t:%s\n", tag);
+	strcpy(current, file);
 	while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+		const char *tmp = sqlite3_column_text(stmt, 0);
+		if (strcmp(current, tmp) != 0) {
+			printf("file: %s\n", tmp);
+			strcpy(current, tmp);
+		}
 		tag = sqlite3_column_text(stmt, 1);
 		printf("\t:%s\n", tag);
 	}
