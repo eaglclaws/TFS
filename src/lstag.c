@@ -14,6 +14,7 @@ main(int argc, char *argv[])
 	FILE *dbfile;
 	int tagcount;
 	char **tags;
+	char ***files;
 
 	dbfile = fopen("../tfs.db", "r");
 	if (dbfile == NULL) {
@@ -36,6 +37,7 @@ main(int argc, char *argv[])
 	sqlite3_finalize(stmt);
 	
 	tags = malloc(tagcount * sizeof(char *));
+	files = malloc(tagcount * sizeof(char *));
 	sqlite3_prepare_v2(db, "SELECT name FROM tags;", -1, &stmt, NULL);
 	int i = 0;
 	while (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -45,18 +47,27 @@ main(int argc, char *argv[])
 		i++;
 	}
 	sqlite3_finalize(stmt);
-
 	for (int i = 0; i < tagcount; i++) {
 		char sql[100];
+		int count = 0;
+		sprintf(sql, "SELECT COUNT(file) FROM tagmap WHERE tag=\'%s\';", tags[i]);
+		sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+		sqlite3_step(stmt);
+		count = sqlite3_column_int(stmt, 0);
+		sqlite3_finalize(stmt);
+		files[i] = malloc(count * sizeof(char *));
+
 		sprintf(sql, "SELECT file FROM tagmap WHERE tag=\'%s\';", tags[i]);
 		sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
-		printf("%s\n", tags[i]);
+		int j = 0;
 		while (sqlite3_step(stmt) == SQLITE_ROW) {
-			const char *file = (const char *)sqlite3_column_text(stmt, 0);
-			printf("    :%s\n", file);
+			const char *tmp = (const char *)sqlite3_column_text(stmt, 0);
+			files[i][j] = malloc((strlen(tmp) + 1) * sizeof(char));
+			strcpy(files[i][j], tmp);
+			j++;
 		}
 		sqlite3_finalize(stmt);
 	}
-
+	sqlite3_close(db);
 	return 0;
 }
