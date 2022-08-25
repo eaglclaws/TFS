@@ -47,7 +47,15 @@ main(int argc, char *argv[])
 	sqlite3_finalize(stmt);
 
 	for (int i = 0; i < tagcount; i++) {
+		char sql[100];
+		sprintf(sql, "SELECT file FROM tagmap WHERE tag=\'%s\';", tags[i]);
+		sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
 		printf("%s\n", tags[i]);
+		while (sqlite3_step(stmt) == SQLITE_ROW) {
+			const char *file = (const char *)sqlite3_column_text(stmt, 0);
+			printf("    :%s\n", file);
+		}
+		sqlite3_finalize(stmt);
 	}
 
 	return 0;
