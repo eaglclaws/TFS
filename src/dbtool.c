@@ -3,8 +3,8 @@
 #include <sqlite3.h>
 
 static int f_callback(void *, int, char **, char **);
-static int t_callback(void *, int, char **, char **);
-static int m_callback(void *, int, char **, char **);
+//static int t_callback(void *, int, char **, char **);
+//static int m_callback(void *, int, char **, char **);
 
 
 static int
@@ -19,10 +19,10 @@ f_callback(void *data, int argc, char **argv, char **azColname)
 	return 0;
 }
 
+/*
 static int
 t_callback(void *data, int argc, char **argv, char **azColname)
 {
-	int i;
 	int rc;
 	char *zErrMsg = 0;
 	char sql[1000];
@@ -38,6 +38,7 @@ t_callback(void *data, int argc, char **argv, char **azColname)
 	return 0;
 }
 
+
 static int
 m_callback(void *data, int argc, char **argv, char **azColname)
 {
@@ -48,6 +49,7 @@ m_callback(void *data, int argc, char **argv, char **azColname)
 	}
 	return 0;
 }
+*/
 
 int
 main(int argc, char *argv[])
@@ -95,9 +97,9 @@ main(int argc, char *argv[])
 	const unsigned char *tag = sqlite3_column_text(stmt, 1);
 	printf("file: %s\n", file);
 	printf("\t:%s\n", tag);
-	strcpy(current, file);
+	strcpy(current, (const char *)file);
 	while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
-		const char *tmp = sqlite3_column_text(stmt, 0);
+		const char *tmp = (const char *)sqlite3_column_text(stmt, 0);
 		if (strcmp(current, tmp) != 0) {
 			printf("file: %s\n", tmp);
 			strcpy(current, tmp);

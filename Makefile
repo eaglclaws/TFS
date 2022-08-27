@@ -1,7 +1,8 @@
 CC = gcc
 
-INCLUDE = -Iinclude -I/home/eaglclaws/src/fuse-3.11.0/include
-LIB = -L/usr/local/lib -L/home/eaglclaws/src/fuse-3.11.0/lib
+FUSEDIR = /home/eaglclaws/src/fuse-3.11.0
+INCLUDE = -Iinclude -I$(FUSEDIR)/include
+LIB = -L/usr/local/lib -L$(FUSEDIR)/lib
 MAIN_L = -lcrypto -lfuse3 -lpthread -lsqlite3
 TOOL_L = -lsqlite3
 FLAGS = -Wall -g -O2
