@@ -18,8 +18,6 @@ int
 main(int argc, char *argv[])
 {
 	int rc;
-	char sql1[100];
-	char sql2[100];
 	sqlite3 *db;
 	sqlite3_stmt *stmt;
 	FILE *dbfile;
