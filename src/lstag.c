@@ -152,6 +152,23 @@ main(int argc, char *argv[])
 			}
 		}
 	} else {
+		char counter[1000] = "SELECT COUNT(name) FROM tags WHERE ";
+		for (int i = 1; i < argc; i++) {
+			char buff[100];
+			sprintf(buff, "name=\'%s\'", argv[i]);
+			strcat(counter, buff);
+			if (i != argc - 1) {
+				strcat(counter, " OR ");
+			}
+		}
+		sqlite3_prepare_v2(db, counter, -1, &stmt, NULL);
+		sqlite3_step(stmt);
+		if (argc - 1 != sqlite3_column_int(stmt, 0)) {
+			fprintf(stderr, "A tag does not exist\n");
+			sqlite3_finalize(stmt);
+			return -1;
+		}
+		sqlite3_finalize(stmt);
 	
 		char query[1000] = "SELECT file FROM tagmap GROUP BY file HAVING ";
 		printf("TAG: ");
