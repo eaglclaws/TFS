@@ -15,6 +15,7 @@ main(int argc, char *argv[])
 	int tagcount;
 	char **tags;
 	char ***files;
+	int *filecount;
 
 	dbfile = fopen("../tfs.db", "r");
 	if (dbfile == NULL) {
@@ -38,6 +39,7 @@ main(int argc, char *argv[])
 	
 	tags = malloc(tagcount * sizeof(char *));
 	files = malloc(tagcount * sizeof(char *));
+	filecount = malloc(tagcount * sizeof(int));
 	sqlite3_prepare_v2(db, "SELECT name FROM tags;", -1, &stmt, NULL);
 	int i = 0;
 	while (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -66,7 +68,12 @@ main(int argc, char *argv[])
 			strcpy(files[i][j], tmp);
 			j++;
 		}
+		filecount[i] = j;
 		sqlite3_finalize(stmt);
+	}
+
+	for (int i = 0; i < tagcount; i++) {
+		printf("%d\n", filecount[i]);
 	}
 	sqlite3_close(db);
 	return 0;
